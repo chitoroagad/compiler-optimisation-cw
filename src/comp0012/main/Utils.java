@@ -42,7 +42,7 @@ public class Utils {
             }
             if (instruction instanceof LDC2_W) {
                 LDC2_W ldc2_w = (LDC2_W) instruction;
-                if (extractArithmeticType(ldc2_w.getType(constPoolGen)) != ArithType.OTHER) {
+                if (extractArithmeticType(ldc2_w.getType(constPoolGen)) != NumType.OTHER) {
                     return ldc2_w.getValue(constPoolGen);
                 }
             }
@@ -72,16 +72,16 @@ public class Utils {
         return null;
     }
 
-    public static ArithType extractArithmeticType(Type type) {
+    public static NumType extractArithmeticType(Type type) {
         if (type == Type.INT)
-            return ArithType.INT;
+            return NumType.INT;
         if (type == Type.LONG)
-            return ArithType.LONG;
+            return NumType.LONG;
         if (type == Type.FLOAT)
-            return ArithType.FLOAT;
+            return NumType.FLOAT;
         if (type == Type.DOUBLE)
-            return ArithType.DOUBLE;
-        return ArithType.OTHER;
+            return NumType.DOUBLE;
+        return NumType.OTHER;
     }
 
     public enum ArithmeticInstructionHack {

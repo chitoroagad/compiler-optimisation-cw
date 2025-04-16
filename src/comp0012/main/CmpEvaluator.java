@@ -8,7 +8,7 @@ public class CmpEvaluator {
             Type number1Type,
             Type number2Type,
             Number number1, Number number2) {
-        ArithType bestType = getBestType(number1Type, number2Type);
+        NumType bestType = getBestType(number1Type, number2Type);
         if (number2 == null && !isZeroComparison(cmpType)) {
             throw new IllegalArgumentException("Number 2 is null and of type " + number2Type
                     + " Number 1 is " + number1 + " and of type " + number2Type
@@ -44,21 +44,21 @@ public class CmpEvaluator {
         }
     }
 
-    private static ArithType convertToOurTypes(Type type) {
+    private static NumType convertToOurTypes(Type type) {
         if (type.equals(Type.DOUBLE)) {
-            return ArithType.DOUBLE;
+            return NumType.DOUBLE;
         } else if (type.equals(Type.FLOAT)) {
-            return ArithType.FLOAT;
+            return NumType.FLOAT;
         } else if (type.equals(Type.INT)) {
-            return ArithType.INT;
+            return NumType.INT;
         } else if (type.equals(Type.LONG)) {
-            return ArithType.LONG;
+            return NumType.LONG;
         } else {
-            return ArithType.OTHER;
+            return NumType.OTHER;
         }
     }
 
-    private static ArithType getBestType(Type number1Type, Type number2Type) {
+    private static NumType getBestType(Type number1Type, Type number2Type) {
         if (number2Type == null) {
             return convertToOurTypes(number1Type);
         }
@@ -66,18 +66,18 @@ public class CmpEvaluator {
             return convertToOurTypes(number1Type);
         } else {
             if (areFloatingType(number1Type, number2Type)) {
-                if (convertToOurTypes(number1Type) == ArithType.DOUBLE
-                        || convertToOurTypes(number2Type) == ArithType.DOUBLE) {
-                    return ArithType.DOUBLE;
+                if (convertToOurTypes(number1Type) == NumType.DOUBLE
+                        || convertToOurTypes(number2Type) == NumType.DOUBLE) {
+                    return NumType.DOUBLE;
                 } else {
-                    return ArithType.FLOAT;
+                    return NumType.FLOAT;
                 }
             } else {
-                if (convertToOurTypes(number1Type) == ArithType.LONG
-                        || convertToOurTypes(number2Type) == ArithType.LONG) {
-                    return ArithType.LONG;
+                if (convertToOurTypes(number1Type) == NumType.LONG
+                        || convertToOurTypes(number2Type) == NumType.LONG) {
+                    return NumType.LONG;
                 } else {
-                    return ArithType.INT;
+                    return NumType.INT;
                 }
             }
         }
@@ -88,7 +88,7 @@ public class CmpEvaluator {
                 || number1Type.equals(Type.FLOAT) || number2Type.equals(Type.FLOAT);
     }
 
-    private static boolean performEqualComparison(ArithType typeToUse,
+    private static boolean performEqualComparison(NumType typeToUse,
             Number number1, Number number2) {
         switch (typeToUse) {
             case DOUBLE:
@@ -104,7 +104,7 @@ public class CmpEvaluator {
         }
     }
 
-    private static boolean performGreaterEqualComparison(ArithType typeToUse,
+    private static boolean performGreaterEqualComparison(NumType typeToUse,
             Number number1, Number number2) {
         switch (typeToUse) {
             case DOUBLE:
@@ -120,7 +120,7 @@ public class CmpEvaluator {
         }
     }
 
-    private static boolean performLessEqualComparison(ArithType typeToUse,
+    private static boolean performLessEqualComparison(NumType typeToUse,
             Number number1, Number number2) {
         switch (typeToUse) {
             case DOUBLE:
@@ -136,7 +136,7 @@ public class CmpEvaluator {
         }
     }
 
-    private static boolean performLessComparison(ArithType typeToUse,
+    private static boolean performLessComparison(NumType typeToUse,
             Number number1, Number number2) {
         switch (typeToUse) {
             case DOUBLE:
@@ -152,7 +152,7 @@ public class CmpEvaluator {
         }
     }
 
-    private static boolean performGreaterComparison(ArithType typeToUse,
+    private static boolean performGreaterComparison(NumType typeToUse,
             Number number1, Number number2) {
         switch (typeToUse) {
             case DOUBLE:

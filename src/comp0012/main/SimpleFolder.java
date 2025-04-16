@@ -21,9 +21,6 @@ import org.apache.bcel.generic.MethodGen;
 import org.apache.bcel.generic.Type;
 import org.apache.bcel.generic.TypedInstruction;
 
-/**
- * @author Timur Kuzhagaliyev
- */
 public class SimpleFolder extends Optimiser {
 
     public SimpleFolder(ClassGen classGen, ConstantPoolGen constPoolGen) {
