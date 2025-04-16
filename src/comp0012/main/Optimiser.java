@@ -7,14 +7,12 @@ public abstract class Optimiser {
     protected ClassGen classGen;
     protected ConstantPoolGen constPoolGen;
 
-    protected String debugString = null;
-
     public Optimiser(ClassGen classGen, ConstantPoolGen constPoolGen) {
         this.classGen = classGen;
         this.constPoolGen = constPoolGen;
     }
 
-    public Method optimiseMethod(Method method, int iteration) {
+    public Method optimiseMethod(Method method) {
         MethodGen methodGen = new MethodGen(method, this.classGen.getClassName(), this.constPoolGen);
         InstructionList list = methodGen.getInstructionList();
         String className = this.classGen.getClassName();
@@ -63,7 +61,6 @@ public abstract class Optimiser {
                 }
             }
         } else {
-            System.err.println("Error: (" + debugString + ")");
             System.err.println(e.getClass() + e.getMessage());
             System.err.println();
         }

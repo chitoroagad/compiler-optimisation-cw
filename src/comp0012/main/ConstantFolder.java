@@ -30,7 +30,7 @@ public class ConstantFolder {
             this.constPoolGen = classGen.getConstantPool();
             this.optimisers = new Optimiser[] {
                     new SimpleFolder(classGen, constPoolGen),
-                    new ConstantPropagator(classGen, constPoolGen),
+                    new ConstVarFold(classGen, constPoolGen),
             };
 
         } catch (IOException e) {
@@ -40,7 +40,6 @@ public class ConstantFolder {
 
     public void optimize() {
         optimizeMethods(classGen.getMethods());
-        classGen.setMajor(50);
         classGen.setConstantPool(constPoolGen);
         optimized = classGen.getJavaClass();
     }

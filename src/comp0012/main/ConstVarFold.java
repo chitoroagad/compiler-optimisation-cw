@@ -6,11 +6,11 @@ import org.apache.bcel.generic.*;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ConstantPropagator extends Optimiser {
+public class ConstVarFold extends Optimiser {
 
     private Map<Integer, Number> varsByIndex = null;
 
-    public ConstantPropagator(ClassGen classGen, ConstantPoolGen constPoolGen) {
+    public ConstVarFold(ClassGen classGen, ConstantPoolGen constPoolGen) {
         super(classGen, constPoolGen);
     }
 

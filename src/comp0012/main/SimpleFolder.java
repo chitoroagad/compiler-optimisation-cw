@@ -30,12 +30,8 @@ public class SimpleFolder extends Optimiser {
         super(classGen, constPoolGen);
     }
 
-    /**
-     * Replaces arithmetic instructions with constants and converts constants (e.g.
-     * casting) where
-     * possible
-     *
-     * @return Optimised method or null if no optimisations could be done
+    /*
+     * Replaces arithmetic instructions with constants and converts constants
      */
     protected Method optimiseMethod(
             Method method,
@@ -58,7 +54,7 @@ public class SimpleFolder extends Optimiser {
     }
 
     /**
-     * @return Determines whether an optimisation has been performed
+     * @return bool is an optimisation has happened
      */
     private boolean handleConversion(InstructionList list, InstructionHandle handle) {
         ConversionInstruction instruction = (ConversionInstruction) handle.getInstruction();
