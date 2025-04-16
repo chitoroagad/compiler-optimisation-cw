@@ -1,71 +1,438 @@
 package comp0012.main;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-
-import org.apache.bcel.classfile.Constant;
-import org.apache.bcel.classfile.ConstantPool;
 import org.apache.bcel.classfile.ClassParser;
 import org.apache.bcel.classfile.Code;
 import org.apache.bcel.classfile.JavaClass;
 import org.apache.bcel.classfile.Method;
-import org.apache.bcel.generic.ArithmeticInstruction;
-import org.apache.bcel.generic.BIPUSH;
-import org.apache.bcel.generic.ClassGen;
-import org.apache.bcel.generic.ConstantPoolGen;
-import org.apache.bcel.generic.DCONST;
-import org.apache.bcel.generic.FCONST;
-import org.apache.bcel.generic.IADD;
-import org.apache.bcel.generic.Instruction;
-import org.apache.bcel.generic.InstructionHandle;
-import org.apache.bcel.generic.InstructionList;
-import org.apache.bcel.generic.InstructionTargeter;
-import org.apache.bcel.generic.LCONST;
-import org.apache.bcel.generic.LDC;
-import org.apache.bcel.generic.LDC2_W;
-import org.apache.bcel.generic.LoadInstruction;
-import org.apache.bcel.generic.ICONST;
-import org.apache.bcel.generic.IDIV;
-import org.apache.bcel.generic.IMUL;
-import org.apache.bcel.generic.ISUB;
-import org.apache.bcel.util.InstructionFinder;
-import org.apache.bcel.generic.MethodGen;
-import org.apache.bcel.generic.SIPUSH;
-import org.apache.bcel.generic.StoreInstruction;
-import org.apache.bcel.generic.TargetLostException;
+import org.apache.bcel.generic.*;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Stack;
+
+interface InstructionOptimizer {
+    void optimize(InstructionHandle handle, InstructionList list, Stack<Number> constantStack,
+            HashMap<Integer, Number> vars, ConstantPoolGen cpgen);
+}
+
+interface ArithmeticOperation {
+    Number perform(Number x, Number y);
+}
+
+abstract class InstructionHandler {
+    protected final ConstantPoolGen cpgen;
+
+    protected InstructionHandler(ConstantPoolGen cpgen) {
+        this.cpgen = cpgen;
+    }
+
+    abstract boolean canHandle(Instruction instruction);
+
+    abstract void handle(InstructionHandle handle, InstructionList list,
+            Stack<Number> constantStack, HashMap<Integer, Number> vars);
+}
+
+// Concrete arithmetic operations
+class AddOperation implements ArithmeticOperation {
+    @Override
+    public Number perform(Number x, Number y) {
+        System.out.println("Adding " + x + " and " + y);
+        if (x instanceof Integer && y instanceof Integer) {
+            return y.intValue() + x.intValue();
+        } else if (x instanceof Long && y instanceof Long) {
+            return y.longValue() + x.longValue();
+        } else if (x instanceof Float && y instanceof Float) {
+            return y.floatValue() + x.floatValue();
+        } else if (x instanceof Double && y instanceof Double) {
+            return y.doubleValue() + x.doubleValue();
+        }
+        throw new IllegalArgumentException("Unsupported number types");
+    }
+}
+
+class MultiplyOperation implements ArithmeticOperation {
+    @Override
+    public Number perform(Number x, Number y) {
+        System.out.println("Multiplying " + x + " and " + y);
+        if (x instanceof Integer && y instanceof Integer) {
+            return y.intValue() * x.intValue();
+        } else if (x instanceof Long && y instanceof Long) {
+            return y.longValue() * x.longValue();
+        } else if (x instanceof Float && y instanceof Float) {
+            return y.floatValue() * x.floatValue();
+        } else if (x instanceof Double && y instanceof Double) {
+            return y.doubleValue() * x.doubleValue();
+        }
+        throw new IllegalArgumentException("Unsupported number types");
+    }
+}
+
+class SubtractOperation implements ArithmeticOperation {
+    @Override
+    public Number perform(Number x, Number y) {
+        System.out.println("Subtracting " + x + " and " + y);
+        if (x instanceof Integer && y instanceof Integer) {
+            return y.intValue() - x.intValue();
+        } else if (x instanceof Long && y instanceof Long) {
+            return y.longValue() - x.longValue();
+        } else if (x instanceof Float && y instanceof Float) {
+            return y.floatValue() - x.floatValue();
+        } else if (x instanceof Double && y instanceof Double) {
+            return y.doubleValue() - x.doubleValue();
+        }
+        throw new IllegalArgumentException("Unsupported number types");
+    }
+}
+
+class DivideOperation implements ArithmeticOperation {
+    @Override
+    public Number perform(Number x, Number y) {
+        System.out.println("Dividing " + x + " and " + y);
+        if (x instanceof Integer && y instanceof Integer) {
+            return y.intValue() / x.intValue();
+        } else if (x instanceof Long && y instanceof Long) {
+            return y.longValue() / x.longValue();
+        } else if (x instanceof Float && y instanceof Float) {
+            return y.floatValue() / x.floatValue();
+        } else if (x instanceof Double && y instanceof Double) {
+            return y.doubleValue() / x.doubleValue();
+        }
+        throw new IllegalArgumentException("Unsupported number types");
+    }
+}
+
+// Utility class for instruction-related operations
+class InstructionUtils {
+    static void deleteInstruction(InstructionHandle handle, InstructionList list) {
+        try {
+            // Get all instructions that target this handle
+            InstructionTargeter[] targeters = handle.getTargeters();
+            if (targeters != null) {
+                for (InstructionTargeter targeter : targeters) {
+                    if (targeter instanceof BranchInstruction) {
+                        BranchInstruction branch = (BranchInstruction) targeter;
+                        // Update the target to the next instruction
+                        branch.setTarget(handle.getNext());
+                    }
+                }
+            }
+
+            list.delete(handle);
+        } catch (TargetLostException e) {
+            InstructionHandle[] targets = e.getTargets();
+            for (InstructionHandle target : targets) {
+                InstructionTargeter[] targeters = target.getTargeters();
+                for (InstructionTargeter targeter : targeters) {
+                    targeter.updateTarget(target, null);
+                }
+            }
+        }
+    }
+}
+
+// Concrete instruction handlers
+class ArithmeticInstructionHandler extends InstructionHandler {
+    private final ArithmeticOperation operation;
+
+    public ArithmeticInstructionHandler(ConstantPoolGen cpgen, ArithmeticOperation operation) {
+        super(cpgen);
+        this.operation = operation;
+    }
+
+    @Override
+    public boolean canHandle(Instruction instruction) {
+        return instruction instanceof ArithmeticInstruction;
+    }
+
+    @Override
+    public void handle(InstructionHandle handle, InstructionList list,
+            Stack<Number> constantStack, HashMap<Integer, Number> vars) {
+        // Check if we have enough operands on the stack
+        if (constantStack.size() < 2) {
+            return;
+        }
+
+        try {
+            Number x = constantStack.pop();
+            Number y = constantStack.pop();
+
+            // Skip if either operand is null
+            if (x == null || y == null) {
+                // Restore the stack state
+                constantStack.push(y);
+                constantStack.push(x);
+                return;
+            }
+
+            Number result = operation.perform(x, y);
+            if (result != null) {
+                constantStack.push(result);
+
+                // Replace the arithmetic instruction with LDC
+                if (result instanceof Double) {
+                    list.insert(handle, new LDC2_W(cpgen.addDouble((Double) result)));
+                } else if (result instanceof Long) {
+                    list.insert(handle, new LDC2_W(cpgen.addLong((Long) result)));
+                } else if (result instanceof Integer) {
+                    list.insert(handle, new LDC(cpgen.addInteger((Integer) result)));
+                } else if (result instanceof Float) {
+                    list.insert(handle, new LDC(cpgen.addFloat((Float) result)));
+                }
+
+                InstructionUtils.deleteInstruction(handle, list);
+            } else {
+                // Restore the stack state if operation failed
+                constantStack.push(y);
+                constantStack.push(x);
+            }
+        } catch (Exception e) {
+            System.err.println("Error optimizing arithmetic instruction: " + e.getMessage());
+        }
+    }
+}
+
+// track variable state
+class VariableState {
+    private final Map<Integer, Number> constantValues;
+    private final Set<Integer> modifiedVariables;
+
+    public VariableState() {
+        this.constantValues = new HashMap<>();
+        this.modifiedVariables = new HashSet<>();
+    }
+
+    public void setConstant(int index, Number value) {
+        if (!modifiedVariables.contains(index)) {
+            constantValues.put(index, value);
+        }
+    }
+
+    public void markModified(int index) {
+        modifiedVariables.add(index);
+        constantValues.remove(index);
+    }
+
+    public Number getValue(int index) {
+        return constantValues.get(index);
+    }
+
+    public boolean isConstant(int index) {
+        return constantValues.containsKey(index);
+    }
+}
+
+class StoreInstructionHandler extends InstructionHandler {
+    public StoreInstructionHandler(ConstantPoolGen cpgen) {
+        super(cpgen);
+    }
+
+    @Override
+    public boolean canHandle(Instruction instruction) {
+        return instruction instanceof StoreInstruction;
+    }
+
+    @Override
+    public void handle(InstructionHandle handle, InstructionList list,
+            Stack<Number> constantStack, HashMap<Integer, Number> vars) {
+        if (constantStack.isEmpty()) {
+            return;
+        }
+
+        Number value = constantStack.pop();
+        int index = ((StoreInstruction) handle.getInstruction()).getIndex();
+
+        // Only store if the value is a constant number
+        if (value != null &&
+                (value instanceof Integer || value instanceof Long ||
+                        value instanceof Float || value instanceof Double)) {
+            vars.put(index, value);
+        }
+
+        InstructionUtils.deleteInstruction(handle, list);
+    }
+}
+
+class LoadInstructionHandler extends InstructionHandler {
+    public LoadInstructionHandler(ConstantPoolGen cpgen) {
+        super(cpgen);
+    }
+
+    @Override
+    public boolean canHandle(Instruction instruction) {
+        return instruction instanceof LoadInstruction && !(instruction instanceof ALOAD);
+    }
+
+    @Override
+    public void handle(InstructionHandle handle, InstructionList list,
+            Stack<Number> constantStack, HashMap<Integer, Number> vars) {
+        int index = ((LoadInstruction) handle.getInstruction()).getIndex();
+        Number value = vars.get(index);
+
+        if (value != null) {
+            constantStack.push(value);
+
+            // Replace load with constant
+            if (value instanceof Double) {
+                list.insert(handle, new LDC2_W(cpgen.addDouble((Double) value)));
+            } else if (value instanceof Long) {
+                list.insert(handle, new LDC2_W(cpgen.addLong((Long) value)));
+            } else if (value instanceof Integer) {
+                list.insert(handle, new LDC(cpgen.addInteger((Integer) value)));
+            } else if (value instanceof Float) {
+                list.insert(handle, new LDC(cpgen.addFloat((Float) value)));
+            }
+
+            InstructionUtils.deleteInstruction(handle, list);
+        }
+    }
+}
+
+class GotoInstructionHandler extends InstructionHandler {
+    public GotoInstructionHandler(ConstantPoolGen cpgen) {
+        super(cpgen);
+    }
+
+    @Override
+    public boolean canHandle(Instruction instruction) {
+        return instruction instanceof GotoInstruction;
+    }
+
+    @Override
+    public void handle(InstructionHandle handle, InstructionList list,
+            Stack<Number> constantStack, HashMap<Integer, Number> vars) {
+        GotoInstruction gotoInst = (GotoInstruction) handle.getInstruction();
+        InstructionHandle target = gotoInst.getTarget();
+
+        // If the GOTO target is the next instruction, it's redundant
+        if (target == handle.getNext()) {
+            InstructionUtils.deleteInstruction(handle, list);
+        }
+    }
+}
 
 public class ConstantFolder {
-    ClassParser parser = null;
-    ClassGen gen = null;
-
-    JavaClass original = null;
-    JavaClass optimized = null;
+    private final ClassParser parser;
+    private final ClassGen gen;
+    private final JavaClass original;
+    private JavaClass optimized;
+    private final List<InstructionHandler> instructionHandlers;
+    private final Map<Class<? extends Instruction>, ArithmeticOperation> arithmeticOperations;
 
     public ConstantFolder(String classFilePath) {
         try {
             this.parser = new ClassParser(classFilePath);
             this.original = this.parser.parse();
             this.gen = new ClassGen(this.original);
+
+            // Initialize instruction handlers
+            this.instructionHandlers = new ArrayList<>();
+            this.arithmeticOperations = new HashMap<>();
+
+            initializeOperations();
+            initializeHandlers();
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new RuntimeException("Failed to parse class file: " + classFilePath, e);
         }
+    }
+
+    private void initializeOperations() {
+        // Initialize arithmetic operations
+        arithmeticOperations.put(IADD.class, new AddOperation());
+        arithmeticOperations.put(LADD.class, new AddOperation());
+        arithmeticOperations.put(FADD.class, new AddOperation());
+        arithmeticOperations.put(DADD.class, new AddOperation());
+        arithmeticOperations.put(IMUL.class, new MultiplyOperation());
+        arithmeticOperations.put(LMUL.class, new MultiplyOperation());
+        arithmeticOperations.put(FMUL.class, new MultiplyOperation());
+        arithmeticOperations.put(DMUL.class, new MultiplyOperation());
+        arithmeticOperations.put(ISUB.class, new SubtractOperation());
+        arithmeticOperations.put(LSUB.class, new SubtractOperation());
+        arithmeticOperations.put(FSUB.class, new SubtractOperation());
+        arithmeticOperations.put(DSUB.class, new SubtractOperation());
+        arithmeticOperations.put(IDIV.class, new DivideOperation());
+        arithmeticOperations.put(LDIV.class, new DivideOperation());
+        arithmeticOperations.put(FDIV.class, new DivideOperation());
+        arithmeticOperations.put(DDIV.class, new DivideOperation());
+    }
+
+    private void initializeHandlers() {
+        ConstantPoolGen cpgen = gen.getConstantPool();
+
+        // Add arithmetic instruction handlers
+        for (Map.Entry<Class<? extends Instruction>, ArithmeticOperation> entry : arithmeticOperations.entrySet()) {
+            instructionHandlers.add(new ArithmeticInstructionHandler(cpgen, entry.getValue()));
+        }
+
+        // Add load and store instruction handlers
+        instructionHandlers.add(new LoadInstructionHandler(cpgen));
+        instructionHandlers.add(new StoreInstructionHandler(cpgen));
+
+        // Add GOTO instruction handler
+        instructionHandlers.add(new GotoInstructionHandler(cpgen));
+    }
+
+    private void optimizeMethod(ClassGen cgen, ConstantPoolGen cpgen, Method method) {
+        Code methodCode = method.getCode();
+
+        if (methodCode == null) {
+            return;
+        }
+
+        Stack<Number> constantStack = new Stack<>();
+        HashMap<Integer, Number> vars = new HashMap<>();
+        VariableState varState = new VariableState();
+
+        InstructionList instList = new InstructionList(methodCode.getCode());
+        MethodGen methodGen = new MethodGen(method.getAccessFlags(), method.getReturnType(),
+                method.getArgumentTypes(), null, method.getName(),
+                cgen.getClassName(), instList, cpgen);
+
+        for (InstructionHandle handle : instList.getInstructionHandles()) {
+            Instruction instruction = handle.getInstruction();
+            if (instruction == null)
+                continue;
+
+            // Handle variable modifications
+            if (instruction instanceof IINC) {
+                int index = ((IINC) instruction).getIndex();
+                varState.markModified(index);
+            }
+
+            // Find appropriate handler
+            for (InstructionHandler handler : instructionHandlers) {
+                if (handler.canHandle(instruction)) {
+                    handler.handle(handle, instList, constantStack, vars);
+                    break;
+                }
+            }
+        }
+
+        try {
+            instList.setPositions(true);
+        } catch (Exception e) {
+            System.out.println("Problem setting positions");
+        }
+
+        methodGen.setMaxStack();
+        methodGen.setMaxLocals();
+        Method newMethod = methodGen.getMethod();
+        cgen.replaceMethod(method, newMethod);
     }
 
     public void optimize() {
         ClassGen cgen = new ClassGen(original);
         ConstantPoolGen cpgen = cgen.getConstantPool();
 
-        // Implement your optimization here
-
         Method[] methods = cgen.getMethods();
-
-        for (Method method : methods) {
-            optimizeMethod(cgen, method, cpgen);
+        for (Method m : methods) {
+            optimizeMethod(cgen, cpgen, m);
         }
 
         this.optimized = cgen.getJavaClass();
@@ -77,268 +444,8 @@ public class ConstantFolder {
         try {
             FileOutputStream out = new FileOutputStream(new File(optimisedFilePath));
             this.optimized.dump(out);
-        } catch (FileNotFoundException e) {
-            // Auto-generated catch block
-            e.printStackTrace();
         } catch (IOException e) {
-            // Auto-generated catch block
-            e.printStackTrace();
+            throw new RuntimeException("Failed to write optimized class file: " + optimisedFilePath, e);
         }
-    }
-
-    private void optimizeMethod(ClassGen cgen, Method method, ConstantPoolGen cpgen) {
-        if (method.isAbstract() || method.isNative()) {
-            return;
-        }
-
-        Code code = method.getCode();
-        if (code == null) {
-            return;
-        }
-
-        MethodGen methodGen = new MethodGen(method, cgen.getClassName(), cpgen);
-
-        InstructionList instructionList = methodGen.getInstructionList();
-        if (instructionList == null) {
-            return;
-        }
-
-        // track constant local variables
-        Map<Integer, Number> constantVariables = new HashMap<>();
-
-        // First pass: identify constant variables
-        InstructionHandle handle = instructionList.getStart();
-        while (handle != null) {
-            Instruction instruction = handle.getInstruction();
-
-            if (instruction instanceof BIPUSH || instruction instanceof SIPUSH || instruction instanceof LDC
-                    || instruction instanceof LDC2_W) {
-                Number val = getConstantValue(instruction, cpgen);
-                InstructionHandle next = handle.getNext();
-
-                if (next != null && isStoreInstruction(next.getInstruction())) {
-                    int idx = getStoreIndex(next.getInstruction());
-                    constantVariables.put(idx, val);
-                }
-            }
-
-            // check is const variable is being reassigned
-            if (isStoreInstruction(instruction)) {
-                int idx = getStoreIndex(instruction);
-                InstructionHandle prev = handle.getPrev();
-                if (prev == null || !(prev.getInstruction() instanceof BIPUSH)
-                        || prev.getInstruction() instanceof SIPUSH || prev.getInstruction() instanceof LDC
-                        || prev.getInstruction() instanceof LDC2_W) {
-                    constantVariables.remove(idx);
-                }
-            }
-            handle = handle.getNext();
-        }
-
-        // Second pass: replace variables lead with const vals
-        handle = instructionList.getStart();
-        while (handle != null) {
-            InstructionHandle nextHandle = handle.getNext();
-            Instruction instruction = handle.getInstruction();
-
-            // if loading replace it with constant
-            if (isLoadInstruction(instruction)) {
-                int idx = getLoadIndex(instruction);
-
-                if (constantVariables.containsKey(idx)) {
-                    Number val = constantVariables.get(idx);
-                    Instruction newInstruction = createConstantLoadInstruction(val, cpgen);
-
-                    try {
-                        instructionList.insert(handle, newInstruction);
-                        instructionList.delete(handle);
-                    } catch (TargetLostException e) {
-                        InstructionHandle[] targets = e.getTargets();
-                        for (InstructionHandle target : targets) {
-                            for (InstructionTargeter targeter : target.getTargeters()) {
-                                targeter.updateTarget(target, handle.getPrev());
-                            }
-                        }
-                    }
-                }
-            }
-
-            else if (isArithmeticInstruction(instruction) && nextHandle != null) {
-                handle = tryFoldConstantOperation(instructionList, handle, cpgen);
-            }
-            handle = nextHandle;
-        }
-        instructionList.setPositions();
-
-        methodGen.setMaxStack();
-        methodGen.setMaxLocals();
-        Method optimizedMethod = methodGen.getMethod();
-        cgen.replaceMethod(method, optimizedMethod);
-    }
-
-    private Number getConstantValue(Instruction instruction, ConstantPoolGen cpgen) {
-        if (instruction instanceof BIPUSH) {
-            return ((BIPUSH) instruction).getValue();
-        }
-        if (instruction instanceof SIPUSH) {
-            return ((SIPUSH) instruction).getValue();
-        }
-        if (instruction instanceof LDC) {
-            LDC ldc = (LDC) instruction;
-            Object val = ldc.getValue(cpgen);
-            if (val instanceof Number) {
-                return (Number) val;
-            }
-        } else if (instruction instanceof LDC2_W) {
-            LDC2_W ldc = (LDC2_W) instruction;
-            Object val = ldc.getValue(cpgen);
-            if (val instanceof Number) {
-                return (Number) val;
-            }
-        }
-        return null;
-    }
-
-    private boolean isStoreInstruction(Instruction instruction) {
-        return instruction instanceof StoreInstruction;
-    }
-
-    private boolean isLoadInstruction(Instruction instruction) {
-        return instruction instanceof LoadInstruction;
-    }
-
-    private boolean isArithmeticInstruction(Instruction instruction) {
-        return instruction instanceof ArithmeticInstruction;
-    }
-
-    private int getStoreIndex(Instruction instruction) {
-        if (instruction instanceof StoreInstruction) {
-            return ((StoreInstruction) instruction).getIndex();
-        }
-        return -1;
-    }
-
-    private int getLoadIndex(Instruction instruction) {
-        if (instruction instanceof LoadInstruction) {
-            return ((LoadInstruction) instruction).getIndex();
-        }
-        return -1;
-    }
-
-    private Instruction createConstantLoadInstruction(Number val, ConstantPoolGen cpgen) {
-        if (val instanceof Integer) {
-            int intVal = val.intValue();
-            if (intVal >= -1 && intVal <= 5) {
-                return new ICONST(intVal);
-            }
-            if (intVal >= Byte.MIN_VALUE && intVal <= Byte.MAX_VALUE) {
-                return new BIPUSH((byte) intVal);
-            }
-            if (intVal >= Short.MIN_VALUE && intVal <= Short.MAX_VALUE) {
-                return new SIPUSH((short) intVal);
-            }
-            return new LDC(cpgen.addInteger(intVal));
-        }
-        if (val instanceof Float) {
-            float floatVal = val.floatValue();
-            if (floatVal == 0.0f || floatVal == 1.0f || floatVal == 2.0f) {
-                return new FCONST(floatVal);
-            }
-            return new LDC(cpgen.addFloat(floatVal));
-        }
-        if (val instanceof Long) {
-            long longVal = val.longValue();
-            if (longVal == 0L || longVal == 1L) {
-                return new LCONST(longVal);
-            }
-            return new LDC2_W(cpgen.addLong(longVal));
-        }
-        if (val instanceof Double) {
-            double doubleVal = val.doubleValue();
-            if (doubleVal == 0.0d || doubleVal == 1.0d) {
-                return new DCONST(doubleVal);
-            }
-            return new LDC2_W(cpgen.addDouble(doubleVal));
-        }
-
-        return null;
-    }
-
-    private InstructionHandle tryFoldConstantOperation(InstructionList instructionList, InstructionHandle handle,
-            ConstantPoolGen cpgen) {
-        // TODO: make this real, only folds where both operands are const
-        Instruction instruction = handle.getInstruction();
-
-        if (instruction instanceof IADD || instruction instanceof ISUB || instruction instanceof IMUL
-                || instruction instanceof IDIV) {
-            InstructionHandle first = handle.getPrev();
-            InstructionHandle second = null;
-
-            if (first != null) {
-                second = first.getPrev();
-            }
-
-            if (first != null && second != null) {
-                Number val1 = null;
-                Number val2 = null;
-
-                if (first.getInstruction() instanceof LDC) {
-                    Object v = ((LDC) first.getInstruction()).getValue(cpgen);
-                    if (v instanceof Integer) {
-                        val1 = (Integer) v;
-                    }
-                } else if (first.getInstruction() instanceof BIPUSH) {
-                    val1 = ((BIPUSH) first.getInstruction()).getValue();
-                } else if (first.getInstruction() instanceof SIPUSH) {
-                    val1 = ((SIPUSH) first.getInstruction()).getValue();
-                }
-
-                if (second.getInstruction() instanceof LDC) {
-                    Object v = ((LDC) second.getInstruction()).getValue(cpgen);
-                    if (v instanceof Integer) {
-                        val2 = (Integer) v;
-                    }
-                } else if (second.getInstruction() instanceof BIPUSH) {
-                    val2 = ((BIPUSH) second.getInstruction()).getValue();
-                } else if (second.getInstruction() instanceof SIPUSH) {
-                    val2 = ((SIPUSH) second.getInstruction()).getValue();
-                }
-
-                if (val1 != null && val2 != null) {
-                    int res = 0;
-
-                    if (instruction instanceof IADD) {
-                        res = val2.intValue() + val1.intValue();
-                    } else if (instruction instanceof ISUB) {
-                        res = val2.intValue() - val1.intValue();
-                    } else if (instruction instanceof IMUL) {
-                        res = val2.intValue() * val1.intValue();
-                    } else if (instruction instanceof IDIV) {
-                        res = val2.intValue() / val1.intValue();
-                    } else {
-                        return handle;
-                    }
-
-                    Instruction newInstruction = createConstantLoadInstruction(res, cpgen);
-
-                    try {
-                        instructionList.delete(second);
-                        instructionList.delete(first);
-                        instructionList.insert(handle, newInstruction);
-                        instructionList.delete(handle);
-
-                        return handle.getPrev();
-                    } catch (TargetLostException e) {
-                        InstructionHandle[] targets = e.getTargets();
-                        for (InstructionHandle target : targets) {
-                            for (InstructionTargeter targeter : target.getTargeters()) {
-                                targeter.updateTarget(target, handle.getPrev());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return handle;
     }
 }
